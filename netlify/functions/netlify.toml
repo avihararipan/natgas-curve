@@ -1,7 +1,10 @@
 [build]
   publish = "."
   functions = "netlify/functions"
-  command = "cd netlify/functions && npm install && cd ../.."
+  command = "npm install"
+
+[functions]
+  node_bundler = "esbuild"
 
 [[redirects]]
   from = "/api/settlements"
