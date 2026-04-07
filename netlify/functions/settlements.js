@@ -2,8 +2,18 @@ const { getStore } = require('@netlify/blobs');
 
 exports.handler = async function(event, context) {
   try {
-    const store = getStore('natgas');
-    const raw = await store.get('settlements');
+    const store = getStore({
+      name: 'natgas',
+      siteID: process.env.NETLIFY_SITE_ID,
+      token: process.env.NETLIFY_AUTH_TOKEN,
+    });
+
+    let raw;
+    try {
+      raw = await store.get('settlements');
+    } catch(e) {
+      raw = null;
+    }
 
     if (!raw) {
       return {
