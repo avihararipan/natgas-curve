@@ -16,6 +16,15 @@ function parseContract(code) {
   return `${mon} ${yr}`;
 }
 
+function toYMD(dateStr) {
+  // Handles both "2026-04-06" and "04/06/2026"
+  if (!dateStr) return '';
+  if (dateStr.includes('-')) return dateStr.trim();
+  const parts = dateStr.split('/');
+  if (parts.length === 3) return `${parts[2]}-${parts[0].padStart(2,'0')}-${parts[1].padStart(2,'0')}`;
+  return dateStr.trim();
+}
+
 exports.handler = async function(event, context) {
   if (event.httpMethod !== 'POST') {
     return { statusCode: 405, body: 'Method Not Allowed' };
@@ -32,6 +41,13 @@ exports.handler = async function(event, context) {
     if (!date || !prices || prices.length !== CONTRACTS.length) {
       return { statusCode: 400, body: JSON.stringify({ error: `Need exactly ${CONTRACTS.length} prices` }) };
     }
+
+    const normalizedDate = toYMD(date);
+    const normalizedPrices = prices.map(p => {
+      const n = parseFloat(String(p).replace(',', '.'));
+      // If price looks like it's missing decimal (e.g. 2811 instead of 2.811)
+      return n > 100 ? n / 1000 : n;
+    });
 
     const store = getStore({
       name: 'natgas',
@@ -51,9 +67,21 @@ exports.handler = async function(event, context) {
       existing = { contracts: CONTRACTS.map(parseContract), days: [] };
     }
 
-    const normalizeDate = d => new Date(d).toISOString().split('T')[0];
-existing.days = existing.days.filter(d => normalizeDate(d.date) !== normalizeDate(date));
-    existing.days.push({ date, prices: prices.map(Number) });
+    // Remove any entry with same date (normalize all stored dates too)
+    existing.days = existing.days.filter(d => toYMD(d.date) !== normalizedDate);
+
+    // Also fix any existing bad prices (>100 means missing decimal)
+    existing.days = existing.days.map(d => ({
+      ...d,
+      date: toYMD(d.date),
+      prices: d.prices.map(p => p > 100 ? p / 1000 : p)
+    }));
+
+    // Add new day
+    existing.days.push({ date: normalizedDate, prices: normalizedPrices });
+
+    // Sort by date and keep last 10
+    existing.days.sort((a, b) => a.date.localeCompare(b.date));
     existing.days = existing.days.slice(-10);
 
     await store.set('settlements', JSON.stringify(existing));
