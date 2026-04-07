@@ -1,9 +1,7 @@
 [build]
   publish = "."
   functions = "netlify/functions"
-
-[[plugins]]
-  package = "@netlify/plugin-functions-install-core"
+  command = "cd netlify/functions && npm install && cd ../.."
 
 [[redirects]]
   from = "/api/settlements"
