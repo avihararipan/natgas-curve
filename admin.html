@@ -25,6 +25,7 @@
       width: 100%;
       max-width: 480px;
       box-shadow: 0 4px 24px rgba(0,0,0,0.4);
+      margin-bottom: 16px;
     }
     label { display: block; font-size: 0.8rem; color: #8b949e; margin-bottom: 6px; margin-top: 16px; }
     input, textarea {
@@ -66,6 +67,11 @@
     }
     button:hover { background: #2ea043; }
     button:disabled { background: #21262d; color: #8b949e; cursor: not-allowed; }
+    .clear-btn {
+      background: #6e1717;
+      margin-top: 10px;
+    }
+    .clear-btn:hover { background: #8b1a1a; }
     .msg {
       margin-top: 16px;
       padding: 12px;
@@ -76,6 +82,7 @@
     .msg.success { background: #0f2b1a; color: #3fb950; border: 1px solid #238636; display: block; }
     .msg.error { background: #2d1b1b; color: #f85149; border: 1px solid #6e1717; display: block; }
     .hint { font-size: 0.75rem; color: #8b949e; margin-top: 6px; }
+    .divider { border: none; border-top: 1px solid #21262d; margin: 16px 0; }
   </style>
 </head>
 <body>
@@ -94,8 +101,13 @@
     <textarea id="prices" placeholder="2.887&#10;3.035&#10;3.293&#10;3.377&#10;3.354&#10;3.419&#10;3.749&#10;4.628&#10;5.107&#10;4.555&#10;3.586"></textarea>
     <div class="hint">Paste 11 prices, one per line. Order: K26, M26, N26, Q26, U26, V26, X26, Z26, F27, G27, H27</div>
 
-    <button id="submitBtn" onclick="submit()">Save Settlement</button>
+    <button id="submitBtn" onclick="saveDay()">Save Settlement</button>
     <div class="msg" id="msg"></div>
+
+    <hr class="divider"/>
+
+    <button class="clear-btn" onclick="clearAll()">🗑 Clear All Data</button>
+    <div class="msg" id="clearMsg"></div>
   </div>
 
   <script>
@@ -115,24 +127,27 @@
       labelsEl.appendChild(el);
     });
 
-    async function submit() {
+    function getPassword() {
+      return document.getElementById('password').value.trim();
+    }
+
+    async function saveDay() {
       const btn = document.getElementById('submitBtn');
       const msg = document.getElementById('msg');
       msg.className = 'msg';
-      msg.textContent = '';
 
-      const password = document.getElementById('password').value.trim();
+      const password = getPassword();
       const date = document.getElementById('date').value;
       const priceLines = document.getElementById('prices').value.trim().split('\n').map(l => l.trim()).filter(Boolean);
 
-      if (!password) return showMsg('error', 'Please enter the password.');
-      if (!date) return showMsg('error', 'Please select a date.');
+      if (!password) return showMsg('msg', 'error', 'Please enter the password.');
+      if (!date) return showMsg('msg', 'error', 'Please select a date.');
       if (priceLines.length !== CONTRACTS.length) {
-        return showMsg('error', `Need exactly ${CONTRACTS.length} prices, got ${priceLines.length}.`);
+        return showMsg('msg', 'error', `Need exactly ${CONTRACTS.length} prices, got ${priceLines.length}.`);
       }
 
       const prices = priceLines.map(Number);
-      if (prices.some(isNaN)) return showMsg('error', 'All prices must be numbers.');
+      if (prices.some(isNaN)) return showMsg('msg', 'error', 'All prices must be numbers.');
 
       btn.disabled = true;
       btn.textContent = 'Saving...';
@@ -145,21 +160,43 @@
         });
         const data = await res.json();
         if (data.success) {
-          showMsg('success', `✓ Saved! You now have ${data.days} day(s) stored. View the chart at the main page.`);
+          showMsg('msg', 'success', `✓ Saved! You now have ${data.days} day(s) stored.`);
           document.getElementById('prices').value = '';
         } else {
-          showMsg('error', data.error || 'Something went wrong.');
+          showMsg('msg', 'error', data.error || 'Something went wrong.');
         }
       } catch(e) {
-        showMsg('error', 'Network error: ' + e.message);
+        showMsg('msg', 'error', 'Network error: ' + e.message);
       }
 
       btn.disabled = false;
       btn.textContent = 'Save Settlement';
     }
 
-    function showMsg(type, text) {
-      const msg = document.getElementById('msg');
+    async function clearAll() {
+      const password = getPassword();
+      if (!password) return showMsg('clearMsg', 'error', 'Enter your password first.');
+      if (!confirm('Are you sure you want to delete ALL stored data?')) return;
+
+      try {
+        const res = await fetch('/api/clear-settlements', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ password })
+        });
+        const data = await res.json();
+        if (data.success) {
+          showMsg('clearMsg', 'success', '✓ All data cleared. You can now re-enter prices.');
+        } else {
+          showMsg('clearMsg', 'error', data.error || 'Something went wrong.');
+        }
+      } catch(e) {
+        showMsg('clearMsg', 'error', 'Network error: ' + e.message);
+      }
+    }
+
+    function showMsg(id, type, text) {
+      const msg = document.getElementById(id);
       msg.className = 'msg ' + type;
       msg.textContent = text;
     }
