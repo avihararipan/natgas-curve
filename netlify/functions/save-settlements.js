@@ -33,17 +33,26 @@ exports.handler = async function(event, context) {
       return { statusCode: 400, body: JSON.stringify({ error: `Need exactly ${CONTRACTS.length} prices` }) };
     }
 
-    const store = getStore('natgas');
-    const raw = await store.get('settlements');
-    const existing = raw ? JSON.parse(raw) : { contracts: CONTRACTS.map(parseContract), days: [] };
+    const store = getStore({
+      name: 'natgas',
+      siteID: process.env.NETLIFY_SITE_ID,
+      token: process.env.NETLIFY_AUTH_TOKEN,
+    });
 
-    // Remove duplicate date if re-submitting same day
+    let existing;
+    try {
+      const raw = await store.get('settlements');
+      existing = raw ? JSON.parse(raw) : null;
+    } catch(e) {
+      existing = null;
+    }
+
+    if (!existing) {
+      existing = { contracts: CONTRACTS.map(parseContract), days: [] };
+    }
+
     existing.days = existing.days.filter(d => d.date !== date);
-
-    // Add new day
     existing.days.push({ date, prices: prices.map(Number) });
-
-    // Keep only last 10 days
     existing.days = existing.days.slice(-10);
 
     await store.set('settlements', JSON.stringify(existing));
