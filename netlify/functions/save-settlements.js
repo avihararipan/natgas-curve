@@ -51,7 +51,8 @@ exports.handler = async function(event, context) {
       existing = { contracts: CONTRACTS.map(parseContract), days: [] };
     }
 
-    existing.days = existing.days.filter(d => d.date !== date);
+    const normalizeDate = d => new Date(d).toISOString().split('T')[0];
+existing.days = existing.days.filter(d => normalizeDate(d.date) !== normalizeDate(date));
     existing.days.push({ date, prices: prices.map(Number) });
     existing.days = existing.days.slice(-10);
 
