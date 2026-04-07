@@ -1,0 +1,8 @@
+{
+  "name": "natgas-curve",
+  "version": "1.0.0",
+  "description": "Henry Hub Natural Gas Forward Curve Animation",
+  "engines": {
+    "node": "18"
+  }
+}
